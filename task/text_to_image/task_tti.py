@@ -40,7 +40,18 @@ async def _save_images(attachments: list[Attachment]):
     #  1. Create DIAL bucket client
     #  2. Iterate through Images from attachments, download them and then save here
     #  3. Print confirmation that image has been saved locally
-    raise NotImplementedError
+
+    async with DialBucketClient(
+            api_key=API_KEY,
+            base_url=DIAL_URL
+    ) as bucket_client:
+        for attachment in attachments:
+            if attachment.type and attachment.type == 'image/png':
+                image_data = await bucket_client.get_file(attachment.url)
+                file_name = f"generated_image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                with open(file_name, "wb") as image_file:
+                    image_file.write(image_data)
+                print(f"Image saved locally as {file_name}")
 
 
 def start() -> None:
@@ -51,7 +62,31 @@ def start() -> None:
     #  4. Try to configure the picture for output via `custom_fields` parameter.
     #    - Documentation: See `custom_fields`. https://dialx.ai/dial_api#operation/sendChatCompletionRequest
     #  5. Test it with the 'imagegeneration@005' (Google image generation model)
-    raise NotImplementedError
+
+    client = DialModelClient(
+        endpoint=DIAL_CHAT_COMPLETIONS_ENDPOINT,
+        deployment_name="imagegeneration@005",
+        api_key=API_KEY
+    )
+    messages = [
+        Message(
+            role=Role.USER,
+            content="Generate an image of a sunny day on Bali."
+        )
+    ]
+    custom_fields = {
+        "image_generation": {
+            "size": Size.width_rectangle,
+            "style": Style.vivid,
+            "quality": Quality.hd
+        }
+    }
+
+    # response = client.get_completion(messages=messages), custom_fields=custom_fields)} for dall-e-3
+    response = client.get_completion(messages=messages)
+    print("Response:", response.content)
+    if response.custom_content and response.custom_content.attachments:
+        asyncio.run(_save_images(response.custom_content.attachments))
 
 
 start()

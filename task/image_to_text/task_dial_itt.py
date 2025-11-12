@@ -20,7 +20,23 @@ async def _put_image() -> Attachment:
     #  3. Use BytesIO to load bytes of image
     #  4. Upload file with client
     #  5. Return Attachment object with title (file name), url and type (mime type)
-    raise NotImplementedError
+
+    async with DialBucketClient(
+            api_key=API_KEY,
+            base_url=DIAL_URL
+    ) as bucket_client:
+        with open(image_path, "rb") as image_file:
+            image_bytes = image_file.read()
+        image_stream = BytesIO(image_bytes)
+        upload_result = await bucket_client.put_file(name=file_name, mime_type=mime_type_png, content=image_stream)
+        attachment = Attachment(
+            title=file_name,
+            url=upload_result.get("url"),
+            type=mime_type_png
+        )
+        return attachment
+
+
 
 
 def start() -> None:
@@ -38,7 +54,23 @@ def start() -> None:
     #        adapts this attachment to Message content in appropriate format for Model.
     #  TRY THIS APPROACH WITH DIFFERENT MODELS!
     #  Optional: Try upload 2+ pictures for analysis
-    raise NotImplementedError
+
+    client = DialModelClient(
+        endpoint=DIAL_CHAT_COMPLETIONS_ENDPOINT,
+        deployment_name="gpt-4o",
+        api_key=API_KEY
+    )
+    attachment = asyncio.run(_put_image())
+    print("Attachment:", attachment)
+    messages = [
+        Message(
+            role=Role.USER,
+            content="What do you see on this picture?",
+            custom_content=CustomContent(attachments=[attachment])
+        )
+    ]
+    response = client.get_completion(messages)
+    print("Response:", response.content)
 
 
 start()
